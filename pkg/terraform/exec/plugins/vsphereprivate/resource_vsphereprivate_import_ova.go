@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
@@ -310,6 +311,19 @@ func resourceVSpherePrivateImportOvaCreate(d *schema.ResourceData, meta interfac
 		cisp)
 
 	if err != nil {
+		if strings.Contains(err.Error(), "Permission to perform this operation was denied") {
+			permissionMessage := `[permission denied] error when trying to deploy a new OVF! Check if the user has the required privileges on:
+			Datastore:
+			*  Allocate space
+
+			Network:
+			*  Assign network
+
+			vApp:
+			*  Import
+		`
+			return fmt.Errorf("%s %s", permissionMessage, err)
+		}
 		return errors.Errorf("failed to create import spec: %s", err)
 	}
 	if spec.Error != nil {
@@ -329,6 +343,13 @@ func resourceVSpherePrivateImportOvaCreate(d *schema.ResourceData, meta interfac
 		importOvaParams.Host)
 
 	if err != nil {
+		if strings.Contains(err.Error(), "Permission to perform this operation was denied") {
+			permissionMessage := `[permission denied] error when trying to import an vApp! Check if the user has the required privileges on:
+			Virtual machine:
+			*  Add new disk
+		`
+			return fmt.Errorf("%s %s", permissionMessage, err)
+		}
 		return errors.Errorf("failed to import vapp: %s", err)
 	}
 

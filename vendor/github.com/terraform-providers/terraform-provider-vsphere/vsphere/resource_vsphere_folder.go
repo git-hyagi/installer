@@ -105,6 +105,13 @@ func resourceVSphereFolderCreate(d *schema.ResourceData, meta interface{}) error
 
 	folder, err := parent.CreateFolder(ctx, path.Base(p))
 	if err != nil {
+		if strings.Contains(err.Error(), "Permission to perform this operation was denied") {
+			permissionMessage := `[permission denied] error creating folder! Check if the user has the required privilege on:
+			Folder
+			*  Create folder
+		`
+			return fmt.Errorf("%s %s", permissionMessage, err)
+		}
 		return fmt.Errorf("error creating folder: %s", err)
 	}
 
@@ -113,6 +120,14 @@ func resourceVSphereFolderCreate(d *schema.ResourceData, meta interface{}) error
 	// Apply any pending tags now
 	if tagsClient != nil {
 		if err := processTagDiff(tagsClient, d, folder); err != nil {
+			if strings.Contains(err.Error(), "error attaching tags to object ID") {
+				permissionMessage := `[permission denied] error updating tags! Check if the user has the required privileges on:
+				vSphere Tagging
+				*  Assign or Unassign vSphere Tag
+				*  Assign or Unassign vSphere Tag on Object
+			`
+				return fmt.Errorf("%s %s", permissionMessage, err)
+			}
 			return fmt.Errorf("error updating tags: %s", err)
 		}
 	}

@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/terraform-providers/terraform-provider-vsphere/vsphere/internal/helper/contentlibrary"
-	"github.com/terraform-providers/terraform-provider-vsphere/vsphere/internal/helper/ovfdeploy"
 	"io/ioutil"
 	"log"
 	"net"
@@ -13,6 +11,9 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/terraform-providers/terraform-provider-vsphere/vsphere/internal/helper/contentlibrary"
+	"github.com/terraform-providers/terraform-provider-vsphere/vsphere/internal/helper/ovfdeploy"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
@@ -1507,6 +1508,22 @@ func resourceVSphereVirtualMachineCreateClone(d *schema.ResourceData, meta inter
 			vm, err = virtualmachine.Clone(client, srcVM, fo, name, cloneSpec, timeout)
 		}
 		if err != nil {
+			if strings.Contains(err.Error(), "Permission to perform this operation was denied") {
+				permissionMessage := `[permission denied] error when trying to clone a virtual machine! Check if the user has the required privileges on:
+				Resource:
+				*  Assign virtual machine to resource pool
+
+				Virtual Machine:
+				*  Add existing disk
+				*  Add new disk
+				*  Add or remove device
+				*  Change Settings
+				*  Create from existing
+				*  Create new
+				*  Clone virtual machine
+			`
+				return nil, fmt.Errorf("%s %s", permissionMessage, err)
+			}
 			return nil, fmt.Errorf("error cloning virtual machine: %s", err)
 		}
 	}
