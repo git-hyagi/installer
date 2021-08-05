@@ -311,6 +311,9 @@ func resourceVSpherePrivateImportOvaCreate(d *schema.ResourceData, meta interfac
 		cisp)
 
 	if err != nil {
+		// If we get into this point and received a "permission
+		// denied" error, it is probably because of a lack of
+		// privilege on datastore, network or vapp categories.
 		if strings.Contains(err.Error(), "Permission to perform this operation was denied") {
 			permissionMessage := `[permission denied] error when trying to deploy a new OVF! Check if the user has the required privileges on:
 			Datastore:
@@ -343,6 +346,11 @@ func resourceVSpherePrivateImportOvaCreate(d *schema.ResourceData, meta interfac
 		importOvaParams.Host)
 
 	if err != nil {
+		// If we get into this point and received a "permission
+		// denied" error, it is probably because of a lack of
+		// privilege on virtual machine category as the privilege
+		// on the other resources has already been satisfied on
+		// previous steps.
 		if strings.Contains(err.Error(), "Permission to perform this operation was denied") {
 			permissionMessage := `[permission denied] error when trying to import an vApp! Check if the user has the required privileges on:
 			Virtual machine:
@@ -355,6 +363,14 @@ func resourceVSpherePrivateImportOvaCreate(d *schema.ResourceData, meta interfac
 
 	info, err := lease.Wait(ctx, spec.FileItem)
 	if err != nil {
+		// The "Invalid configuration for device 0" generally happens when
+		// the datastore provided on the install-config is not shared accross
+		// the nodes of the cluster.
+		if strings.Contains(err.Error(), "Invalid configuration for device") {
+			permissionMessage := `The datastore provided may not be shared across the nodes on cluster. Make sure it is accessible through all the nodes from installation.
+			failed to lease wait: `
+			return fmt.Errorf("%s %s", permissionMessage, err)
+		}
 		return errors.Errorf("failed to lease wait: %s", err)
 	}
 
